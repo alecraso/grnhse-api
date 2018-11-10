@@ -4,6 +4,7 @@ import six
 
 from grnhse.exceptions import (
     InvalidAPIVersion,
+    InvalidAPICallError,
     HTTPError,
     EndpointNotFound)
 from grnhse.harvest.versions import api_versions
@@ -54,13 +55,13 @@ class Harvest(object):
             related = self._uris['related'].get(endpoint, None)
             return HarvestObject(endpoint,
                                  self._api_key, self._base_url,
-                                 uris['list'], uris['retrieve'],
+                                 uris.get('list'), uris.get('retrieve'),
                                  related=related)
         else:
             raise EndpointNotFound(endpoint)
 
     @staticmethod
-    def versions(self):
+    def versions():
         return ', '.join(api_versions.keys())
 
 
@@ -70,8 +71,11 @@ class HarvestObject(SessionAuthMixin):
 
     def __init__(self, name, api_key, base_url, list_uri, retrieve_uri, related=None):
         super(HarvestObject, self).__init__(api_key)
-        self._list = base_url + list_uri
-        self._retrieve = base_url + retrieve_uri
+
+        self._base_url = base_url
+        self._list = base_url + list_uri if list_uri else None
+        self._retrieve = base_url + retrieve_uri if retrieve_uri else None
+
         self._related = related
         self._name = name.replace('_', ' ').title()
 
@@ -93,9 +97,14 @@ class HarvestObject(SessionAuthMixin):
         uris = self._related.get(endpoint, None)
         if uris is not None:
             if self._object_id is None:
-                raise
-            list_uri = uris['list'].format(rel_id=self._object_id)
-            retrieve_uri = uris['retrieve'].format(rel_id=self._object_id)
+                raise InvalidAPICallError(
+                    'Cannot query related object {} without selecting an object id first'.format(endpoint))
+
+            list_uri = (
+                uris['list'].format(rel_id=self._object_id) if uris.get('list') else None)
+            retrieve_uri = (
+                uris['retrieve'].format(rel_id=self._object_id) if uris.get('retrieve') else None)
+
             return HarvestObject(endpoint,
                                  self._api_key, self._base_url,
                                  list_uri, retrieve_uri)
@@ -138,19 +147,22 @@ class HarvestObject(SessionAuthMixin):
     def _get(self, url, params=True):
         _params = self._params if params is True else None
         response = self._session.get(url, params=_params)
+
         if response.status_code == requests.codes.ok:
             self._process_header_links(response.headers)
             return response.json()
         else:
-            raise HTTPError(response.text)
+            raise HTTPError('{r.status_code} {r.text}'.format(r=response))
 
     def get(self, object_id=None, **params):
-        if object_id is not None:
-            url = self._retrieve.format(id=object_id)
-        elif self._object_id is not None:
-            url = self._retrieve.format(id=self._object_id)
-        else:
+        oid = object_id or self._object_id
+        if oid is not None:
+            url = self._retrieve or self._list
+            url = url.format(id=oid)
+        elif self._list is not None:
             url = self._list
+        else:
+            raise InvalidAPICallError('Must provide object id')
         self._set_params(**params)
         return self._get(url)
 

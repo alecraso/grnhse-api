@@ -7,6 +7,10 @@ class InvalidAPIVersion(Exception):
     pass
 
 
+class InvalidAPICallError(Exception):
+    pass
+
+
 class HTTPError(Exception):
     pass
 
