@@ -1,4 +1,7 @@
 # grnhse-api
+[![pypi](https://img.shields.io/pypi/v/grnhse-api.svg)](https://pypi.org/project/grnhse-api/)
+[![versions](https://img.shields.io/pypi/pyversions/grnhse-api.svg)](https://pypi.org/project/grnhse-api/)
+
 A python wrapper for the [Greenhouse](https://developers.greenhouse.io/) APIs.
 
 For now, only the [Harvest API](https://developers.greenhouse.io/harvest.html) is supported.

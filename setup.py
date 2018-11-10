@@ -25,22 +25,14 @@ def find_version():
     raise RuntimeError("Unable to find version string.")
 
 
-try:
-    import pypandoc
-    readme = pypandoc.convert(README, 'rst')
-    changes = pypandoc.convert(CHANGES, 'rst')
-except (IOError, ImportError):
-    readme = read(README)
-    changes = read(CHANGES)
-
-
 setup(
     name='grnhse-api',
     version=find_version(),
     author='Aaron Biller',
     author_email='aaronbiller@gmail.com',
     description='Python wrapper for the Greenhouse APIs',
-    long_description=readme + '\n' + changes,
+    long_description=read(README) + '\n' + read(CHANGES),
+    long_description_content_type='text/markdown',
     license='MIT',
     url='https://github.com/aaronbiller/grnhse-api',
     packages=find_packages(),
