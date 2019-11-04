@@ -1,6 +1,7 @@
 from datetime import date, datetime
 import requests
 import six
+import time
 
 from grnhse.exceptions import (
     InvalidAPIVersion,
@@ -9,6 +10,36 @@ from grnhse.exceptions import (
     EndpointNotFound)
 from grnhse.harvest.versions import api_versions
 from grnhse.util import extract_header_links, strf_dt
+
+
+def throttled_api_call(func):
+    requests_before_throttling_remaining = None
+    requests_before_throttling_remaining_timestamp = None
+
+    def wrapper(self, *args, **kwargs):
+        if not self._handle_throttling:
+            return func(self, *args, **kwargs)
+
+        if requests_before_throttling_remaining == 0:
+            seconds_since_last_request = (datetime.now() - requests_before_throttling_remaining_timestamp).total_seconds()
+            if seconds_since_last_request < 10:
+                time.sleep(10 - seconds_since_last_request)
+
+        response = func(self, *args, **kwargs)
+
+        if response.status_code == requests.codes.too_many:
+            requests_before_throttling_remaining = 0
+            requests_before_throttling_remaining_timestamp = datetime.now()
+            return wrapper(self, *args, **kwargs)
+
+        headers = response.headers
+        if 'X-RateLimit-Remaining' in headers:
+            requests_before_throttling_remaining = int(headers.get('X-RateLimit-Remaining'))
+            requests_before_throttling_remaining_timestamp = datetime.now()
+
+        return response
+
+    return wrapper
 
 
 class SessionAuthMixin(object):
@@ -27,9 +58,10 @@ class SessionAuthMixin(object):
 
 
 class Harvest(object):
-    def __init__(self, api_key=None, version='v1'):
+    def __init__(self, api_key=None, version='v1', handle_throttling=True):
         self._api_key = api_key
         self._version = version
+        self._handle_throttling = handle_throttling
 
         self._api = api_versions.get(version, None)
         if self._api is None:
@@ -54,7 +86,7 @@ class Harvest(object):
         if uris is not None:
             related = self._uris['related'].get(endpoint, None)
             return HarvestObject(endpoint,
-                                 self._api_key, self._base_url,
+                                 self._api_key, self._base_url, self._handle_throttling,
                                  uris.get('list'), uris.get('retrieve'),
                                  related=related)
         else:
@@ -69,7 +101,7 @@ class HarvestObject(SessionAuthMixin):
     _object_id = None
     _params = None
 
-    def __init__(self, name, api_key, base_url, list_uri, retrieve_uri, related=None):
+    def __init__(self, name, api_key, base_url, handle_throttling, list_uri, retrieve_uri, related=None):
         super(HarvestObject, self).__init__(api_key)
 
         self._base_url = base_url
@@ -78,6 +110,7 @@ class HarvestObject(SessionAuthMixin):
 
         self._related = related
         self._name = name.replace('_', ' ').title()
+        self._handle_throttling = handle_throttling
 
         self._next_url = None
         self._last_url = None
@@ -106,7 +139,7 @@ class HarvestObject(SessionAuthMixin):
                 uris['retrieve'].format(rel_id=self._object_id) if uris.get('retrieve') else None)
 
             return HarvestObject(endpoint,
-                                 self._api_key, self._base_url,
+                                 self._api_key, self._base_url, self._handle_throttling,
                                  list_uri, retrieve_uri)
         else:
             raise EndpointNotFound(endpoint)
@@ -144,10 +177,13 @@ class HarvestObject(SessionAuthMixin):
         self._next_url = header_links.get('next', None)
         self._last_url = header_links.get('last', None)
 
-    def _get(self, url, params=True):
+    @throttled_api_call
+    def _fetch(self, url, params=True):
         _params = self._params if params is True else None
-        response = self._session.get(url, params=_params)
+        return self._session.get(url, params=_params)
 
+    def _get(self, url, params=True):
+        response = self._fetch(self, url, params)
         if response.status_code == requests.codes.ok:
             self._process_header_links(response.headers)
             return response.json()
