@@ -14,7 +14,8 @@ from grnhse.util import extract_header_links, strf_dt
 
 def throttled_api_call(func):
     requests_before_throttling_remaining = None
-    requests_before_throttling_remaining_timestamp = None
+    requests_before_throttling_remaining_timestamp = 0
+    throttling_retries = 0
 
     def wrapper(self, *args, **kwargs):
         if not self._handle_throttling:
@@ -22,16 +23,19 @@ def throttled_api_call(func):
 
         if requests_before_throttling_remaining == 0:
             seconds_since_last_request = (datetime.now() - requests_before_throttling_remaining_timestamp).total_seconds()
-            if seconds_since_last_request < 10:
-                time.sleep(10 - seconds_since_last_request)
+            if seconds_since_last_request < self._throttling_duration:
+                time.sleep(self._throttling_duration - seconds_since_last_request)
+                throttling_retries += 1
 
         response = func(self, *args, **kwargs)
 
         if response.status_code == requests.codes.too_many:
-            requests_before_throttling_remaining = 0
-            requests_before_throttling_remaining_timestamp = datetime.now()
-            return wrapper(self, *args, **kwargs)
+            if throttling_retries <= self._throttling_retries:
+                requests_before_throttling_remaining = 0
+                requests_before_throttling_remaining_timestamp = datetime.now()
+                return wrapper(self, *args, **kwargs)
 
+        throttling_retries = 0
         headers = response.headers
         if 'X-RateLimit-Remaining' in headers:
             requests_before_throttling_remaining = int(headers.get('X-RateLimit-Remaining'))
@@ -58,10 +62,12 @@ class SessionAuthMixin(object):
 
 
 class Harvest(object):
-    def __init__(self, api_key=None, version='v1', handle_throttling=True):
+    def __init__(self, api_key=None, version='v1', handle_throttling=True, throttling_duration=10, throttling_retries=3):
         self._api_key = api_key
         self._version = version
         self._handle_throttling = handle_throttling
+        self._throttling_duration = throttling_duration
+        self._throttling_retries = throttling_retries
 
         self._api = api_versions.get(version, None)
         if self._api is None:
@@ -86,7 +92,8 @@ class Harvest(object):
         if uris is not None:
             related = self._uris['related'].get(endpoint, None)
             return HarvestObject(endpoint,
-                                 self._api_key, self._base_url, self._handle_throttling,
+                                 self._api_key, self._base_url,
+                                 self._handle_throttling, self._throttling_duration, self._throttling_retries
                                  uris.get('list'), uris.get('retrieve'),
                                  related=related)
         else:
@@ -101,7 +108,17 @@ class HarvestObject(SessionAuthMixin):
     _object_id = None
     _params = None
 
-    def __init__(self, name, api_key, base_url, handle_throttling, list_uri, retrieve_uri, related=None):
+    def __init__(
+            self,
+            name,
+            api_key,
+            base_url,
+            handle_throttling,
+            throttling_duration,
+            throttling_retries,
+            list_uri,
+            retrieve_uri,
+            related=None):
         super(HarvestObject, self).__init__(api_key)
 
         self._base_url = base_url
@@ -111,6 +128,8 @@ class HarvestObject(SessionAuthMixin):
         self._related = related
         self._name = name.replace('_', ' ').title()
         self._handle_throttling = handle_throttling
+        self._throttling_duration = throttling_duration
+        self._throttling_retries = throttling_retries
 
         self._next_url = None
         self._last_url = None
@@ -139,7 +158,8 @@ class HarvestObject(SessionAuthMixin):
                 uris['retrieve'].format(rel_id=self._object_id) if uris.get('retrieve') else None)
 
             return HarvestObject(endpoint,
-                                 self._api_key, self._base_url, self._handle_throttling,
+                                 self._api_key, self._base_url,
+                                 self._handle_throttling, self._throttling_duration, self._throttling_retries,
                                  list_uri, retrieve_uri)
         else:
             raise EndpointNotFound(endpoint)
