@@ -93,7 +93,7 @@ class Harvest(object):
             related = self._uris['related'].get(endpoint, None)
             return HarvestObject(endpoint,
                                  self._api_key, self._base_url,
-                                 self._handle_throttling, self._throttling_duration, self._throttling_retries
+                                 self._handle_throttling, self._throttling_duration, self._throttling_retries,
                                  uris.get('list'), uris.get('retrieve'),
                                  related=related)
         else:
