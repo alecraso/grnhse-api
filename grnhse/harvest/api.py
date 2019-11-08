@@ -13,33 +13,35 @@ from grnhse.util import extract_header_links, strf_dt
 
 
 def throttled_api_call(func):
-    requests_before_throttling_remaining = None
-    requests_before_throttling_remaining_timestamp = 0
-    throttling_retries = 0
+    closure = {
+        'requests_before_throttling_remaining': None,
+        'requests_before_throttling_remaining_timestamp': None,
+        'throttling_retries': 0,
+    }
 
     def wrapper(self, *args, **kwargs):
         if not self._handle_throttling:
             return func(self, *args, **kwargs)
 
-        if requests_before_throttling_remaining == 0:
-            seconds_since_last_request = (datetime.now() - requests_before_throttling_remaining_timestamp).total_seconds()
+        if closure['requests_before_throttling_remaining'] == 0:
+            seconds_since_last_request = (datetime.now() - closure['requests_before_throttling_remaining_timestamp']).total_seconds()
             if seconds_since_last_request < self._throttling_duration:
                 time.sleep(self._throttling_duration - seconds_since_last_request)
-                throttling_retries += 1
+                closure['throttling_retries'] = closure['throttling_retries'] + 1
 
         response = func(self, *args, **kwargs)
 
         if response.status_code == requests.codes.too_many:
-            if throttling_retries <= self._throttling_retries:
-                requests_before_throttling_remaining = 0
-                requests_before_throttling_remaining_timestamp = datetime.now()
+            if closure['throttling_retries'] <= self._throttling_retries:
+                closure['requests_before_throttling_remaining'] = 0
+                closure['requests_before_throttling_remaining_timestamp'] = datetime.now()
                 return wrapper(self, *args, **kwargs)
 
-        throttling_retries = 0
+        closure['throttling_retries'] = 0
         headers = response.headers
         if 'X-RateLimit-Remaining' in headers:
-            requests_before_throttling_remaining = int(headers.get('X-RateLimit-Remaining'))
-            requests_before_throttling_remaining_timestamp = datetime.now()
+            closure['requests_before_throttling_remaining'] = int(headers.get('X-RateLimit-Remaining'))
+            closure['requests_before_throttling_remaining_timestamp'] = datetime.now()
 
         return response
 
