@@ -21,7 +21,7 @@ def throttled_api_call(func):
 
     def wrapper(self, *args, **kwargs):
         if not self._handle_throttling:
-            return func(self, *args, **kwargs)
+            return self.func(*args, **kwargs)
 
         if closure['requests_before_throttling_remaining'] == 0:
             seconds_since_last_request = (datetime.now() - closure['requests_before_throttling_remaining_timestamp']).total_seconds()
@@ -29,7 +29,7 @@ def throttled_api_call(func):
                 time.sleep(self._throttling_duration - seconds_since_last_request)
                 closure['throttling_retries'] = closure['throttling_retries'] + 1
 
-        response = func(self, *args, **kwargs)
+        response = self.func(*args, **kwargs)
 
         if response.status_code == requests.codes.too_many:
             if closure['throttling_retries'] <= self._throttling_retries:
