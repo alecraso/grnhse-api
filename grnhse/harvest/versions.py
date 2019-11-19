@@ -18,6 +18,9 @@ api_versions = {
                     'list': 'candidates',
                     'retrieve': 'candidates/{id}'
                 },
+                'candidate_custom_fields': {
+                    'list': 'custom_fields/candidate'
+                },
                 'close_reasons': {
                     'list': 'close_reasons'
                 },
