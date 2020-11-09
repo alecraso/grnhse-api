@@ -22,7 +22,7 @@ class SessionAuthMixin(object):
 
     def _set_auth(self):
         if self._api_key is not None:
-            auth = (self._api_key, None)
+            auth = (self._api_key, '')
             self._session.auth = auth
 
 
