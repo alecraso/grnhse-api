@@ -42,7 +42,7 @@ setup(
         'mock',
     ],
     install_requires=[
-        'requests==2.20.1',
+        'requests>=2.20.1',
         'pytest-runner==4.2',
     ],
     include_package_data=True,
