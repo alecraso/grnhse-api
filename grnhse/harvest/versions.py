@@ -87,6 +87,10 @@ api_versions = {
                     'list': 'user_roles',
                     'retrieve': 'user_roles/{id}'
                 },
+                'custom_fields': {
+                    'list': 'custom_fields',
+                    'retrieve': 'custom_field/{id}'
+                },
             },
             'related': {
                 'applications': {
