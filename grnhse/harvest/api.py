@@ -68,8 +68,9 @@ class Harvest(object):
 class HarvestObject(SessionAuthMixin):
     _object_id = None
     _params = None
+    _on_behalf_of = None
 
-    def __init__(self, name, api_key, base_url, list_uri, retrieve_uri, related=None):
+    def __init__(self, name, api_key, base_url, list_uri, retrieve_uri, related=None, on_behalf_of=None):
         super(HarvestObject, self).__init__(api_key)
 
         self._base_url = base_url
@@ -78,6 +79,8 @@ class HarvestObject(SessionAuthMixin):
 
         self._related = related
         self._name = name.replace('_', ' ').title()
+
+        self._on_behalf_of = on_behalf_of
 
         self._next_url = None
         self._last_url = None
@@ -175,3 +178,26 @@ class HarvestObject(SessionAuthMixin):
         if self._last_url is None:
             raise AttributeError('Last url is not set, try querying a plain get() first')
         return self._get(self._last_url, params=False)
+
+    def _post(self, url, data):
+        response = self._session.post(url, json=data)
+
+        if response.status_code == requests.codes.created:
+            return response.json()
+        else:
+            raise HTTPError('{r.status_code} {r.text}'.format(r=response))
+
+    def post(self, on_behalf_of=None, data):
+        on_behalf_of = on_behalf_of or self._on_behalf_of
+
+        if on_behalf_of is None:
+            raise InvalidAPICallError('on_behalf_of must either be passed or set on the Harvest instance')
+
+        if self._object_id:
+            raise InvalidAPICallError('Cannot POST with an object id')
+
+        if not self._list:
+            raise InvalidAPICallError('Cannot POST without a list url')
+
+        url = self._list
+        return self._post(url, data)
