@@ -25,3 +25,6 @@ jobs:
     - name: Build package
       run: |
         python setup.py -q sdist --dist-dir 'dist/'
+    - name: List contents of dist/
+      run: |
+        ls -al 'dist/'
