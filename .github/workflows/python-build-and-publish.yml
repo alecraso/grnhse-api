@@ -26,17 +26,17 @@ jobs:
       run: |
         UPDATE_VERSION="true" python setup.py -q sdist --dist-dir 'dist/'
     - name: Rename package (legacy)
+      # This is a re-implementation of the assemble.py method of versioning. It
+      # renames all generated packages files from:
+      #     dist/{package}.tar.gz ->
+      #         dist/{package}-r{timestamp}+git{shorthash}.tar.gz
+      # (Skip the rename if there's a VERSION file)
       run: |
-        	# This is a re-implementation of the assemble.py method of versioning. It
-          # renames all generated packages files from:
-          #     {package}/dist/{package}.tar.gz ->
-          #         {package}/dist/{package}-r{timestamp}+git{shorthash}.tar.gz
           timestamp="$(date '+%Y%m%d%H%M%S')"
           for module in "dist"/*.tar.gz; do {
             module_basename="$(basename "$module" .tar.gz)"
-            # Skip the rename if there's a VERSION file
             if [ ! -f "VERSION" ]; then
-              new_name="$module_basename-r$timestamp+git${GIT_COMMIT:0:7}"
+              new_name="$module_basename-r$timestamp+git${GITHUB_SHA:0:7}"
               mv "$module" "dist/${new_name}.tar.gz"
             fi
           }; done
