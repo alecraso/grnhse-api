@@ -2,6 +2,7 @@ import re
 
 from io import open
 from setuptools import setup, find_packages
+from noom_versioning.versioning import calver_version
 
 README = 'README.md'
 CHANGES = 'CHANGES.md'
@@ -27,7 +28,7 @@ def find_version():
 
 setup(
     name='grnhse-api-lukatest',
-    version=find_version(),
+    version=calver_version(),
     author='Aaron Biller',
     author_email='aaronbiller@gmail.com',
     description='Python wrapper for the Greenhouse APIs',

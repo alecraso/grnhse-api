@@ -10,6 +10,9 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+    env:
+        PIP_INDEX_URL: ${{ secrets.PIP_INDEX_URL }}
+        PIPENV_PYPI_MIRROR: ${{ secrets.PIP_INDEX_URL }}
 
     steps:
     - uses: actions/checkout@v2
@@ -20,7 +23,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip wheel
-        python -m pip install setuptools fabric pycrypto ecdsa pypi-uploader
+        python -m pip install setuptools fabric pycrypto ecdsa pypi-uploader noom_versioning
         if [ -f build-requirements.txt ]; then pip install -r build-requirements.txt; fi
     - name: Build package
       run: |
