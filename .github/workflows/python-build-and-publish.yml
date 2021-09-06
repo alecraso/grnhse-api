@@ -10,9 +10,6 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-    env:
-        PIP_INDEX_URL: ${{ secrets.PIP_INDEX_URL }}
-        PIPENV_PYPI_MIRROR: ${{ secrets.PIP_INDEX_URL }}
 
     steps:
     - uses: actions/checkout@v2
@@ -25,28 +22,12 @@ jobs:
         python -m pip install --upgrade pip wheel
         python -m pip install setuptools fabric pycrypto ecdsa pypi-uploader noom_versioning
         if [ -f build-requirements.txt ]; then pip install -r build-requirements.txt; fi
+      env:
+          PIP_INDEX_URL: ${{ secrets.PIP_INDEX_URL }}
+          PIPENV_PYPI_MIRROR: ${{ secrets.PIP_INDEX_URL }}
     - name: Build package
       run: |
         UPDATE_VERSION="true" python setup.py -q sdist --dist-dir 'dist/'
-    - name: Rename package (legacy)
-      # This is a re-implementation of the assemble.py method of versioning. It
-      # renames all generated packages files from:
-      #     dist/{package}.tar.gz ->
-      #         dist/{package}-r{timestamp}+git{shorthash}.tar.gz
-      # (Skip the rename if there's a VERSION file)
-      run: |
-          timestamp="$(date '+%Y%m%d%H%M%S')"
-          for module in "dist"/*.tar.gz; do {
-            module_basename="$(basename "$module" .tar.gz)"
-            if [ ! -f "VERSION" ]; then
-              new_name="$module_basename-r$timestamp+git${GITHUB_SHA:0:7}"
-              mv "$module" "dist/${new_name}.tar.gz"
-            fi
-          }; done
-
-    - name: List contents of dist/
-      run: |
-        ls -al 'dist/'
     - name: Publish package
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
