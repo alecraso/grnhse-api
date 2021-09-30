@@ -27,7 +27,7 @@ def find_version():
 
 
 setup(
-    name='grnhse-api-lukatest',
+    name='grnhse-api',
     version=calver_version(),
     author='Aaron Biller',
     author_email='aaronbiller@gmail.com',
