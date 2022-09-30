@@ -91,6 +91,9 @@ api_versions = {
                     'list': 'custom_fields',
                     'retrieve': 'custom_field/{id}'
                 },
+                'eeoc': {
+                    'list': 'eeoc'
+                },
             },
             'related': {
                 'applications': {
