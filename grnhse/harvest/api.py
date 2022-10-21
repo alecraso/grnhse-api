@@ -15,9 +15,10 @@ class SessionAuthMixin(object):
     _api_key = None
     _session = None
 
-    def __init__(self, api_key):
+    def __init__(self, api_key, proxies=None):
         self._api_key = api_key
         self._session = requests.Session()
+        self._session.proxies = proxies if proxies else {}
         self._set_auth()
 
     def _set_auth(self):
@@ -27,9 +28,10 @@ class SessionAuthMixin(object):
 
 
 class Harvest(object):
-    def __init__(self, api_key=None, version='v1'):
+    def __init__(self, api_key=None, version='v1', proxies=None):
         self._api_key = api_key
         self._version = version
+        self._proxies = proxies
 
         self._api = api_versions.get(version, None)
         if self._api is None:
@@ -56,7 +58,8 @@ class Harvest(object):
             return HarvestObject(endpoint,
                                  self._api_key, self._base_url,
                                  uris.get('list'), uris.get('retrieve'),
-                                 related=related)
+                                 related=related,
+                                 proxies=self._proxies)
         else:
             raise EndpointNotFound(endpoint)
 
@@ -69,8 +72,8 @@ class HarvestObject(SessionAuthMixin):
     _object_id = None
     _params = None
 
-    def __init__(self, name, api_key, base_url, list_uri, retrieve_uri, related=None):
-        super(HarvestObject, self).__init__(api_key)
+    def __init__(self, name, api_key, base_url, list_uri, retrieve_uri, related=None, proxies=None):
+        super(HarvestObject, self).__init__(api_key, proxies)
 
         self._base_url = base_url
         self._list = base_url + list_uri if list_uri else None
